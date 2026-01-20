@@ -208,7 +208,7 @@ const generateExplanation = (path: DartThrow[], score: number, prefs: UserPrefer
 
 // --- Main Interface ---
 
-export const getOptimalCheckout = (score: number, prefs: UserPreferences): FinishResult => {
+export const getOptimalCheckout = (score: number, prefs: UserPreferences, maxDarts: number = 3): FinishResult => {
   const defaultError = { score, path: [], explanation: "Fehler.", isImpossible: true, missScenarios: [], dartsUsed: 0 };
 
   try {
@@ -220,11 +220,36 @@ export const getOptimalCheckout = (score: number, prefs: UserPreferences): Finis
     }
 
     let allPaths: DartThrow[][] = [];
-    allPaths = solveRecursively(score, 1, []);
-    if (allPaths.length === 0) allPaths = solveRecursively(score, 2, []);
-    if (allPaths.length === 0) allPaths = solveRecursively(score, 3, []);
+    
+    // Versuche küzestmögliche Wege zuerst, aber limitiert durch maxDarts
+    for (let d = 1; d <= maxDarts; d++) {
+      const paths = solveRecursively(score, d, []);
+      if (paths.length > 0) {
+        allPaths = paths;
+        break;
+      }
+    }
 
-    if (allPaths.length === 0) return { ...defaultError, explanation: "Kein gültiger Weg gefunden." };
+    if (allPaths.length === 0) {
+      // Setup wenn kein Finish möglich ist
+      const setup = findBestSetupPath(score, maxDarts, prefs);
+      if (setup.length === 0) return { ...defaultError, explanation: "Kein gültiger Weg gefunden." };
+      
+      let tempScore = score;
+      const steps: DartPathStep[] = setup.map(t => {
+        tempScore -= t.value;
+        return { ...t, remaining: tempScore };
+      });
+
+      return {
+        score,
+        path: steps,
+        explanation: "Kein Finish mit den verbleibenden Darts möglich. Nutzen Sie diese Darts für ein optimales Setup.",
+        isImpossible: false,
+        missScenarios: [],
+        dartsUsed: steps.length
+      };
+    }
 
     allPaths.sort((a, b) => rankPath(a, prefs) - rankPath(b, prefs));
     const best = allPaths[0];
@@ -236,8 +261,11 @@ export const getOptimalCheckout = (score: number, prefs: UserPreferences): Finis
     });
 
     const scenarios: MissScenario[] = [];
-    const scenario = calculateMissScenario(steps, prefs);
-    if (scenario) scenarios.push(scenario);
+    // Szenarien nur berechnen, wenn wir noch mindestens 2 Darts haben
+    if (maxDarts >= 2) {
+      const scenario = calculateMissScenario(steps, prefs);
+      if (scenario) scenarios.push(scenario);
+    }
 
     return {
       score,

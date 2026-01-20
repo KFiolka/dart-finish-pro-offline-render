@@ -1,4 +1,4 @@
-export type ThrowType = 'Single' | 'Double' | 'Triple' | 'Bull' | 'SingleBull';
+export type ThrowType = 'Single' | 'Double' | 'Triple' | 'Bull' | 'SingleBull' | 'Miss';
 
 export interface DartThrow {
   label: string;
@@ -31,4 +31,12 @@ export interface FinishResult {
 export interface UserPreferences {
   favoriteDoubles: string[]; // e.g., ["D20", "D16"]
   favoriteTriples: string[]; // e.g., ["T20", "T19"]
+}
+
+export interface TrainingSession {
+  isActive: boolean;
+  initialScore: number;
+  currentScore: number;
+  dartsThrown: DartThrow[];
+  dartsRemaining: number;
 }
